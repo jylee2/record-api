@@ -1,3 +1,5 @@
+To run:
 deno run --allow-net --allow-write --allow-read --allow-plugin --unstable app.ts
 
-git remote add origin git@github.com:jylee2/record-api.git
+To develop:
+git remote add origin https://github.com/jylee2/record-api.git

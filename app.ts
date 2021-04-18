@@ -13,43 +13,23 @@ import {
   RouterContext,
   Status
 } from 'https://deno.land/x/oak@v6.2.0/mod.ts'
-import {
-  applyGraphQL,
-  gql,
-  GQLError
-} from 'https://deno.land/x/oak_graphql@0.6.2/mod.ts'
-import {
-  Bson,
-  MongoClient
-} from 'https://deno.land/x/mongo@v0.22.0/mod.ts'
+import { applyGraphQL, gql, GQLError } from 'https://deno.land/x/oak_graphql@0.6.2/mod.ts'
+import { Bson, MongoClient } from 'https://deno.land/x/mongo@v0.22.0/mod.ts'
 import { v4 } from 'https://deno.land/std@0.92.0/uuid/mod.ts'
+
+const enums:any = {
+  Status: {
+    ACTIVE: 'active',
+    DELETED: 'deleted'
+  }
+}
 
 const app = new Application()
 
-// =======================================================
-
 const client = new MongoClient()
 await client.connect('mongodb://localhost:27017')
-// await client.connect({
-//   db: 'recordOne',
-//   tls: true,
-//   servers: [
-//     {
-//       host: 'cluster0-shard-00-02.cwxbw.mongodb.net',
-//       port: 27017,
-//     }
-//   ],
-//   credential: {
-//     username: 'jylee4',
-//     password: 'hellomoto123',
-//     db: 'recordOne',
-//     mechanism: "SCRAM-SHA-1"
-//   }
-// })
-// client.connectWithUri('mongodb://localhost:27017')
 
 const db = client.database('test-record')
-const dogs = db.collection('dogs')
 const recordsDB = db.collection('records')
 
 // Error handler middleware
@@ -110,94 +90,72 @@ app.use(async (context, next) => {
   context.response.headers.set('X-Response-Time', `${ms}ms`)
 });
 
-// ========== MongoDB Atlas ==========
-// async function connect(): Promise<Collection<IGistSchema>> {
-//   const client = new MongoClient()
-//   await client.connect({
-//     db: 'recordOne',
-//     tls: true,
-//     servers: [
-//       {
-//         host: 'cluster0-shard-00-02.cwxbw.mongodb.net',
-//         port: 8000,
-//       }
-//     ],
-//     credential: {
-//       username: "<user>",
-//       password: "<password>",
-//       db: 'recordOne',
-//       mechanism: "SCRAM-SHA-1"
-//     }
-//   })
-//   return client.database('gist_api').collection<IGistSchema>('gists')
-
-// }
-// export async function insertGist(gist: any): Promise<string> {
-//   const collection = await connect()
-//   return (await collection.insertOne(gist)).toString()
-// }
-// cluster0-shard-00-02.cwxbw.mongodb.net
-
-// ========== UUID ==========
-const myUUID = v4.generate()
-// console.log('--------myUUID', myUUID)
-const isValidUUID = v4.validate(myUUID)
-// console.log('--------isValid', isValid)
-
 // ========== Oak-GraphQL ==========
-
 const typeDefs: any = gql`
   type Record {
-    id: ID!
+    id: ID
+    createdAt: String
     description: String
     status: String
-    url: String!
+    updatedAt: String
+    url: String
+    username: String
   }
 
-  input RecordInput {
+  input CreateRecordInput {
+    id: ID
+    createdAt: String
     description: String
     status: String
-    url: String!
+    updatedAt: String
+    url: String
+    username: String
   }
 
-  input RecordUpdate {
-    id: ID!
+  input UpdateRecordInput {
+    id: ID
+    createdAt: String
     description: String
     status: String
-    url: String!
+    updatedAt: String
+    url: String
+    username: String
   }
 
   type Query {
-    records: [Record!]!
-    getRecord(id: ID!): Record
+    getRecords: [Record]
+    getRecord(id: ID): Record
   }
 
   type Mutation {
-    createRecord(input: RecordInput): Record!
-    updateRecord(input: RecordUpdate): Record!
-    setRecordStatus(input: RecordUpdate): Record!
+    createRecord(input: CreateRecordInput): Record
+    updateRecord(input: UpdateRecordInput): Record
+    setRecordStatus(input: UpdateRecordInput): Record
   }
 `
 
 const resolvers = {
   Query: {
-    records: async () => {
+    getRecords: async () => {
       try {
         const allRecords = await recordsDB.find()
 
         return allRecords.map((r: any) => {
           const record: any = {
             id: r._id.toString(),
+            createdAt: r.createdAt,
             description: r.description,
             status: r.status,
-            url: r.url
+            updatedAt: r.updatedAt,
+            url: r.url,
+            username: r.username
           }
 
           return record
         })
       } catch (error) {
-        console.log('--------Query records error.message', error.message)
-        return error.message
+        console.log('--------Query getRecords error', error)
+        throw new Error(error)
       }
     },
 
@@ -207,95 +165,108 @@ const resolvers = {
 
         const result: any = {
           id: record._id.toString(),
+          createdAt: record.createdAt,
           description: record.description,
           status: record.status,
-          url: record.url
+          updatedAt: record.updatedAt,
+          url: record.url,
+          username: record.username
         }
 
         return result
       } catch (error) {
-        console.log('--------Query getRecord error.message', error.message)
-        return error.message
+        console.log('--------Query getRecord error', error)
+        throw new Error(error)
       }
     }
   },
 
   Mutation: {
-    createRecord: async (_: any, { input: {description, url} }: any, context: any, info: any) => {
+    createRecord: async (_: any, { input: { description, url, username } }: any, context: any, info: any) => {
       try {
-        const enumStatus = 'active'
+        const createRecordObj:any = {
+          createdAt: new Date().toString(),
+          description: description,
+          status: enums.Status.ACTIVE,
+          url: url,
+          username: username
+        }
 
         const insertId = await recordsDB.insertOne({
           _id: v4.generate(),
-          description: description,
-          status: enumStatus,
-          url: url
+          ...createRecordObj
         })
-        console.log('--------insertId', insertId)
 
         const result: any = {
           id: insertId,
-          description: description,
-          status: enumStatus,
-          url: url
+          ...createRecordObj
         }
+
+        console.log('--------createRecord result', result)
 
         return result
       } catch (error) {
-        console.log('--------Mutation createRecord error.message', error.message)
-        return error.message
+        console.log('--------Mutation createRecord error', error)
+        throw new Error(error)
       }
     },
 
-    updateRecord: async (_: any, { input: {id, description, url} }: any, context: any, info: any) => {
+    updateRecord: async (_: any, { input: { id, description, url } }: any, context: any, info: any) => {
+      if (!v4.validate(id)) {
+        throw new Error('Invalid id.')
+      }
+
       try {
+        const UpdateObj:any = {
+          description: description,
+          url: url
+        }
+
         const { matchedCount, modifiedCount, upsertedId } = await recordsDB.updateOne(
           { _id: id },
-          { $set: {
-            description: description,
-            url: url
-          } },
+          { $set: UpdateObj },
         )
 
         const result: any = {
           id: id,
-          description: description,
-          url: url
+          ...UpdateObj
         }
-        console.log('--------result', result)
+
+        console.log('--------updateRecord result', result)
 
         return result
       } catch (error) {
-        console.log('--------Mutation updateRecord error.message', error.message)
-        return error.message
+        console.log('--------Mutation updateRecord error', error)
+        throw new Error(error)
       }
     },
 
-    setRecordStatus: async (_: any, { input: {id, description, status, url} }: any, context: any, info: any) => {
+    setRecordStatus: async (_: any, { input: {id, status} }: any, context: any, info: any) => {
+      if (!v4.validate(id)) {
+        throw new Error('The provided id is invalid.')
+      }
+
       try {
-        const newStatus = status === 'active' ? 'deleted' : 'active'
+        const UpdateObj:any = {
+          status: status === enums.Status.ACTIVE ? enums.Status.DELETED : enums.Status.ACTIVE,
+        }
 
         const { matchedCount, modifiedCount, upsertedId } = await recordsDB.updateOne(
           { _id: id },
-          { $set: {
-            description: description,
-            status: newStatus,
-            url: url
-          } },
+          { $set: UpdateObj },
         )
 
         const result: any = {
           id: id,
-          description: description,
-          status: newStatus,
-          url: url
+          ...UpdateObj
         }
-        console.log('--------result', result)
+
+        console.log('--------setRecordStatus result', result)
 
         return result
       } catch (error) {
-        console.log('--------Mutation setRecordStatus error.message', error.message)
-        return error.message
+        console.log('--------Mutation setRecordStatus error', error)
+        throw new Error(error)
       }
     }
   }
