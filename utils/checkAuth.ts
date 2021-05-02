@@ -3,9 +3,9 @@ import { create, verify } from 'https://deno.land/x/djwt@v2.2/mod.ts'
 
 import config from '../config.ts'
 
-const checkAuth = async (context:any) => {
+export const checkAuthHeader = async (context:any) => {
   try {
-    console.log('--------context', context)
+    // console.log('--------context', context)
     const authHeader = context.request.headers.authorization
 
     if (authHeader) {
@@ -26,9 +26,30 @@ const checkAuth = async (context:any) => {
 
     throw new GQLError('Please provide an authorization header.')
   } catch (error) {
-    console.log('--------checkAuth error', error)
+    console.log('--------checkAuthHeader error', error)
     throw new Error(error)
   }
 }
 
-export default checkAuth
+export const checkAuthToken = async (token:any) => {
+  try {
+    console.log('--------token', token)
+
+    if (token) {
+      const payload = await verify(token, config.JWT_SECRET_KEY, "HS512")
+
+      if (!payload) {
+        throw new GQLError('Invalid JWT token supplied, please try again.')
+      }
+
+      console.log('--------payload', payload)
+
+      return payload
+    }
+
+    throw new GQLError('Please provide a valid JWT token.')
+  } catch (error) {
+    console.log('--------checkAuth error', error)
+    throw new Error(error)
+  }
+}

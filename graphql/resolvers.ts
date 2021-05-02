@@ -6,7 +6,8 @@ import { create, verify } from 'https://deno.land/x/djwt@v2.2/mod.ts'
 
 import config from '../config.ts'
 import validate from '../utils/validate.ts'
-import checkAuth from '../utils/checkAuth.ts'
+import { checkAuthToken, checkAuthHeader } from '../utils/checkAuth.ts'
+import enums from '../types/enums.ts'
 
 const client = new MongoClient()
 await client.connect('mongodb://localhost:27017')
@@ -15,18 +16,33 @@ const db = client.database('test-record')
 const RecordsDB = db.collection('records')
 const UsersDB = db.collection('users')
 
-const enums:any = {
-  Status: {
-    ACTIVE: 'active',
-    DELETED: 'deleted'
-  }
-}
-
 const resolvers = {
   Query: {
-    getRecords: async () => {
+    getUsers: async () => {
       try {
-        const allRecords = await RecordsDB.find({ status: enums.Status.ACTIVE })
+        const allUsers = await UsersDB.find({ username: { $ne: null } }).sort({ username: 1 })
+
+        return allUsers.map((u: any) => {
+          const user: any = {
+            id: u._id,
+            createdAt: u.createdAt,
+            email: u.email,
+            username: u.username
+          }
+
+          return user
+        })
+      } catch (error) {
+        console.log('--------Query getUsers error', error)
+        throw new Error(error)
+      }
+    },
+
+    getRecords: async (_: any, {}: any, context: any, info: any) => {
+      console.log('--------context', context)
+      
+      try {
+        const allRecords = await RecordsDB.find({ status: enums.Status.ACTIVE }).sort({ createdAt: -1 })
 
         return allRecords.map((r: any) => {
           const record: any = {
@@ -36,6 +52,7 @@ const resolvers = {
             status: r.status,
             updatedAt: r.updatedAt,
             url: r.url,
+            userId: r.userId,
             username: r.username
           }
 
@@ -58,6 +75,7 @@ const resolvers = {
           status: record.status,
           updatedAt: record.updatedAt,
           url: record.url,
+          userId: record.userId,
           username: record.username
         }
 
@@ -70,18 +88,23 @@ const resolvers = {
   },
 
   Mutation: {
-    registerUser: async (_: any, { input: { email, password, passwordConfirm, username } }: any, context: any, info: any) => {
+    registerUser: async (_: any, { input: {
+      email,
+      password,
+      passwordConfirm,
+      username
+    } }: any, context: any, info: any) => {
       try {
         const { errors, valid } = validate.registerInput(email, password, passwordConfirm, username)
 
         if (!valid) {
-          throw new GQLError(errors[Object.keys(errors)[0]])
+          throw new Error(errors[Object.keys(errors)[0]])
         }
 
         const user:any = await UsersDB.findOne({ username: username })
 
         if (user) {
-          throw new GQLError('This username already exists.')
+          throw new Error('This username already exists.')
         }
 
         const newUserObj:any = {
@@ -111,22 +134,25 @@ const resolvers = {
       }
     },
 
-    loginUser: async (_: any, { input: { password, username } }: any, context: any, info: any) => {
+    loginUser: async (_: any, { input: {
+      password,
+      username
+    } }: any, context: any, info: any) => {
       try {
         const { errors, valid } = validate.loginInput(password, username)
 
         if (!valid) {
-          throw new GQLError(errors[Object.keys(errors)[0]])
+          throw new Error(errors[Object.keys(errors)[0]])
         }
 
         const user:any = await UsersDB.findOne({ username: username })
 
         if (!user) {
-          throw new GQLError('This username does not exist.')
+          throw new Error('This username does not exist.')
         }
 
         if (!await bcrypt.compare(password, user.password)) {
-          throw new GQLError('Incorrect password for this username.')
+          throw new Error('Incorrect password for this username.')
         }
 
         const jwt = await create({ alg: 'HS512', typ: 'JWT' }, { _id: user.id }, config.JWT_SECRET_KEY)
@@ -146,17 +172,30 @@ const resolvers = {
       }
     },
 
-    createRecord: async (_:any, { input: { description, url, username } }:any, context:any, info:any) => {
+    createRecord: async (_:any, { input: {
+      authToken,
+      description,
+      url,
+      userId,
+      username
+    } }:any, context:any, info:any) => {
       try {
-        const user = await checkAuth(context)
+        // const user = await checkAuthHeader(context)
+
+        const user = await checkAuthToken(authToken)
 
         console.log('--------createRecord user', user)
+
+        if (!url.includes('https://')) {
+          throw new Error('Url is not https.')
+        }
 
         const createRecordObj:any = {
           createdAt: new Date().toISOString(),
           description: description,
           status: enums.Status.ACTIVE,
           url: url,
+          userId: userId,
           username: username
         }
 
@@ -179,12 +218,34 @@ const resolvers = {
       }
     },
 
-    updateRecord: async (_: any, { input: { id, description, url } }:any, context:any, info:any) => {
+    updateRecord: async (_: any, { input: {
+      id,
+      authToken,
+      description,
+      url,
+      userId
+    } }:any, context:any, info:any) => {
       if (!v4.validate(id)) {
         throw new Error('Invalid id.')
       }
 
       try {
+        // const user = await checkAuthHeader(context)
+
+        const user = await checkAuthToken(authToken)
+
+        console.log('--------updateRecord user', user)
+
+        const record:any = await RecordsDB.findOne({ _id: id })
+
+        const recordByUserId = await RecordsDB.findOne({ userId: userId })
+
+        if (!record || !recordByUserId) {
+          throw new Error('Record not found.')
+        } else if (record.userId !== userId) {
+          throw new Error('This record is not associated with this user.')
+        }
+        
         const UpdateObj:any = {
           description: description,
           updatedAt: new Date().toISOString(),
@@ -210,12 +271,33 @@ const resolvers = {
       }
     },
 
-    setRecordStatus: async (_:any, { input: {id, status} }:any, context:any, info:any) => {
+    setRecordStatus: async (_:any, { input: {
+      id,
+      authToken,
+      status,
+      userId
+    } }:any, context:any, info:any) => {
       if (!v4.validate(id)) {
-        throw new Error('The provided id is invalid.')
+        throw new Error('Invalid id.')
       }
 
       try {
+        // const user = await checkAuthHeader(context)
+
+        const user = await checkAuthToken(authToken)
+
+        console.log('--------updateRecord user', user)
+
+        const record:any = await RecordsDB.findOne({ _id: id })
+
+        const recordByUserId = await RecordsDB.findOne({ userId: userId })
+
+        if (!record || !recordByUserId) {
+          throw new Error('Record not found.')
+        } else if (record.userId !== userId) {
+          throw new Error('This record is not associated with this user.')
+        }
+
         const UpdateObj:any = {
           status: status === enums.Status.ACTIVE ? enums.Status.DELETED : enums.Status.ACTIVE,
           updatedAt: new Date().toISOString()
@@ -238,7 +320,113 @@ const resolvers = {
         console.log('--------Mutation setRecordStatus error', error)
         throw new Error(error)
       }
-    }
+    },
+
+    // createComment: async (_:any, { input: {
+    //   authToken,
+    //   body,
+    //   recordId,
+    //   userId,
+    //   username
+    // } }:any, context:any, info:any) => {
+    //   try {
+    //     console.log('--------context', context)
+    //     // const user = await checkAuthHeader(context)
+
+    //     const user = await checkAuthToken(authToken)
+
+    //     console.log('--------createComment user', user)
+
+    //     if (body.trim() === '') {
+    //       throw new Error('Please enter a comment.')
+    //     }
+
+    //     const record:any = await RecordsDB.findOne({ _id: recordId })
+
+    //     if (!record) {
+    //       throw new Error('Record not found.')
+    //     }
+
+    //     const { matchedCount, modifiedCount, upsertedId } = await RecordsDB.updateOne(
+    //       { _id: recordId },
+    //       { $set: {
+    //         comments: record.comments?.length
+    //         ? record.comments?.unshift({
+    //           _id: v4.generate(),
+    //           body: body,
+    //           createdAt: new Date().toISOString(),
+    //           recordId: recordId,
+    //           status: enums.Status.ACTIVE,
+    //           userId: userId,
+    //           username: username
+    //         })
+    //         : [{
+    //           _id: v4.generate(),
+    //           body: body,
+    //           createdAt: new Date().toISOString(),
+    //           recordId: recordId,
+    //           status: enums.Status.ACTIVE,
+    //           userId: userId,
+    //           username: username
+    //         }]
+    //       } },
+    //     )
+
+    //     console.log('--------createComment record', record)
+
+    //     return record
+    //   } catch (error) {
+    //     console.log('--------Mutation createComment error', error)
+    //     throw new Error(error)
+    //   }
+    // }
+
+    // likeRecord: async (_:any, { input: {
+    //   authToken,
+    //   recordId,
+    //   userId,
+    //   username
+    // } }:any, context:any, info:any) => {
+    //   if (!v4.validate(recordId)) {
+    //     throw new Error('Invalid id.')
+    //   }
+
+    //   try {
+    //     // const user = await checkAuthHeader(context)
+
+    //     const user = await checkAuthToken(authToken)
+
+    //     console.log('--------updateRecord user', user)
+
+    //     const record:any = await RecordsDB.findOne({ _id: recordId })
+
+    //     if (!record) {
+    //       throw new Error('Record not found.')
+    //     }
+
+    //     const UpdateObj:any = {
+    //       status: status === enums.Status.ACTIVE ? enums.Status.DELETED : enums.Status.ACTIVE,
+    //       updatedAt: new Date().toISOString()
+    //     }
+
+    //     const { matchedCount, modifiedCount, upsertedId } = await RecordsDB.updateOne(
+    //       { _id: id },
+    //       { $set: UpdateObj },
+    //     )
+
+    //     const result:any = {
+    //       id: id,
+    //       ...UpdateObj
+    //     }
+
+    //     console.log('--------setRecordStatus result', result)
+
+    //     return result
+    //   } catch (error) {
+    //     console.log('--------Mutation setRecordStatus error', error)
+    //     throw new Error(error)
+    //   }
+    // }
   }
 }
 

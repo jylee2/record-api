@@ -15,14 +15,16 @@ import {
 } from 'https://deno.land/x/oak@v6.2.0/mod.ts'
 import { applyGraphQL, gql, GQLError } from 'https://deno.land/x/oak_graphql@0.6.2/mod.ts'
 import { Bson, MongoClient } from 'https://deno.land/x/mongo@v0.22.0/mod.ts'
+import { oakCors } from 'https://deno.land/x/cors@v1.2.1/mod.ts'
 
 import typeDefs from './graphql/typeDefs.ts'
 import resolvers from './graphql/resolvers.ts'
+import config from './config.ts'
 
 const app = new Application()
 
 const client = new MongoClient()
-await client.connect('mongodb://localhost:27017')
+await client.connect(config.MONGODB_PORT)
 
 // const db = client.database('test-record')
 // const RecordsDB = db.collection('records')
@@ -88,13 +90,15 @@ app.use(async (context, next) => {
 
 // ========== Oak-GraphQL ==========
 
-
-
 const GraphQLService = await applyGraphQL<Router>({
   Router,
   typeDefs: typeDefs,
   resolvers: resolvers,
-  context: (context:any) => context
+  context: (context: RouterContext) => {
+    // console.log('--------RouterContext context', context)
+    // TODO: context doesn't have JWT token, not sure why
+    return context
+  }
 })
 
 app.use(GraphQLService.routes(), GraphQLService.allowedMethods())
@@ -107,10 +111,15 @@ app.use(GraphQLService.routes(), GraphQLService.allowedMethods())
 //   })
 // })
 
+app.use(oakCors({
+  // credentials: true, // to get the cookie
+  origin: config.FRONT_END_PORTS, // ports for the frontend
+}))
+
 app.addEventListener('listen', ({ hostname, port }) => {
   console.log(
     bold('Start listening on ') + yellow(`${hostname}:${port}`),
   )
 })
 
-await app.listen({ hostname: 'localhost', port: 8080 })
+await app.listen({ hostname: 'localhost', port: config.SERVER_PORT })
