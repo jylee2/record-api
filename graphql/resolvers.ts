@@ -4,23 +4,42 @@ import { v4 } from 'https://deno.land/std@0.92.0/uuid/mod.ts'
 import * as bcrypt from 'https://deno.land/x/bcrypt@v0.2.4/mod.ts'
 import { create, verify } from 'https://deno.land/x/djwt@v2.2/mod.ts'
 
-import config from '../config.ts'
+import appConfig from '../appConfig.ts'
 import validate from '../utils/validate.ts'
 import { checkAuthToken, checkAuthHeader } from '../utils/checkAuth.ts'
 import enums from '../types/enums.ts'
 
-const client = new MongoClient()
-await client.connect('mongodb://localhost:27017')
+// ========== MongoDB ==========
 
-const db = client.database('test-record')
+const client = new MongoClient()
+await client.connect({
+  db: 'recordOne',
+  tls: true,
+  servers: [
+    {
+      host: appConfig.MONGO_HOST,
+      port: 27017
+    }
+  ],
+  credential: {
+    username: appConfig.MONGO_USERNAME,
+    password: appConfig.MONGO_PASSWORD,
+    db: 'recordOne',
+    mechanism: 'SCRAM-SHA-1'
+  }
+})
+
+const db = client.database('recordOne')
 const RecordsDB = db.collection('records')
 const UsersDB = db.collection('users')
+
+// ========== MongoDB ==========
 
 const resolvers = {
   Query: {
     getUsers: async () => {
       try {
-        const allUsers = await UsersDB.find({ username: { $ne: null } }).sort({ username: 1 })
+        const allUsers = await UsersDB.find({ username: { $ne: null } }, { noCursorTimeout: false } as any).sort({ username: 1 })
 
         return allUsers.map((u: any) => {
           const user: any = {
@@ -42,7 +61,7 @@ const resolvers = {
       console.log('--------context', context)
       
       try {
-        const allRecords = await RecordsDB.find({ status: enums.Status.ACTIVE }).sort({ createdAt: -1 })
+        const allRecords = await RecordsDB.find({ status: enums.Status.ACTIVE }, { noCursorTimeout: false } as any).sort({ createdAt: -1 })
 
         return allRecords.map((r: any) => {
           const record: any = {
@@ -66,7 +85,7 @@ const resolvers = {
 
     getRecord: async (_: any, { id }: any, context: any, info: any) => {
       try {
-        const record: any = await RecordsDB.findOne({ _id: id, status: enums.Status.ACTIVE })
+        const record: any = await RecordsDB.findOne({ _id: id, status: enums.Status.ACTIVE }, { noCursorTimeout: false } as any)
 
         const result: any = {
           id: record._id,
@@ -101,7 +120,7 @@ const resolvers = {
           throw new Error(errors[Object.keys(errors)[0]])
         }
 
-        const user:any = await UsersDB.findOne({ username: username })
+        const user:any = await UsersDB.findOne({ username: username }, { noCursorTimeout: false } as any)
 
         if (user) {
           throw new Error('This username already exists.')
@@ -119,7 +138,7 @@ const resolvers = {
           ...newUserObj
         })
 
-        const jwt = await create({ alg: 'HS512', typ: 'JWT' }, { _id: insertId }, config.JWT_SECRET_KEY)
+        const jwt = await create({ alg: 'HS512', typ: 'JWT' }, { _id: insertId }, appConfig.JWT_SECRET_KEY)
         
         const result:any = {
           id: insertId,
@@ -145,7 +164,7 @@ const resolvers = {
           throw new Error(errors[Object.keys(errors)[0]])
         }
 
-        const user:any = await UsersDB.findOne({ username: username })
+        const user:any = await UsersDB.findOne({ username: username }, { noCursorTimeout: false } as any)
 
         if (!user) {
           throw new Error('This username does not exist.')
@@ -155,7 +174,7 @@ const resolvers = {
           throw new Error('Incorrect password for this username.')
         }
 
-        const jwt = await create({ alg: 'HS512', typ: 'JWT' }, { _id: user.id }, config.JWT_SECRET_KEY)
+        const jwt = await create({ alg: 'HS512', typ: 'JWT' }, { _id: user.id }, appConfig.JWT_SECRET_KEY)
 
         const result: any = {
           id: user._id,
@@ -236,9 +255,9 @@ const resolvers = {
 
         console.log('--------updateRecord user', user)
 
-        const record:any = await RecordsDB.findOne({ _id: id })
+        const record:any = await RecordsDB.findOne({ _id: id }, { noCursorTimeout: false } as any)
 
-        const recordByUserId = await RecordsDB.findOne({ userId: userId })
+        const recordByUserId = await RecordsDB.findOne({ userId: userId }, { noCursorTimeout: false } as any)
 
         if (!record || !recordByUserId) {
           throw new Error('Record not found.')
@@ -288,9 +307,9 @@ const resolvers = {
 
         console.log('--------updateRecord user', user)
 
-        const record:any = await RecordsDB.findOne({ _id: id })
+        const record:any = await RecordsDB.findOne({ _id: id }, { noCursorTimeout: false } as any)
 
-        const recordByUserId = await RecordsDB.findOne({ userId: userId })
+        const recordByUserId = await RecordsDB.findOne({ userId: userId }, { noCursorTimeout: false } as any)
 
         if (!record || !recordByUserId) {
           throw new Error('Record not found.')
@@ -341,7 +360,7 @@ const resolvers = {
     //       throw new Error('Please enter a comment.')
     //     }
 
-    //     const record:any = await RecordsDB.findOne({ _id: recordId })
+    //     const record:any = await RecordsDB.findOne({ _id: recordId }, { noCursorTimeout: false } as any)
 
     //     if (!record) {
     //       throw new Error('Record not found.')
@@ -398,7 +417,7 @@ const resolvers = {
 
     //     console.log('--------updateRecord user', user)
 
-    //     const record:any = await RecordsDB.findOne({ _id: recordId })
+    //     const record:any = await RecordsDB.findOne({ _id: recordId }, { noCursorTimeout: false } as any)
 
     //     if (!record) {
     //       throw new Error('Record not found.')

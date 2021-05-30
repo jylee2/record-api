@@ -19,16 +19,9 @@ import { oakCors } from 'https://deno.land/x/cors@v1.2.1/mod.ts'
 
 import typeDefs from './graphql/typeDefs.ts'
 import resolvers from './graphql/resolvers.ts'
-import config from './config.ts'
+import appConfig from './appConfig.ts'
 
 const app = new Application()
-
-const client = new MongoClient()
-await client.connect(config.MONGODB_PORT)
-
-// const db = client.database('test-record')
-// const RecordsDB = db.collection('records')
-// const UsersDB = db.collection('users')
 
 // Error handler middleware
 app.use(async (context, next) => {
@@ -113,7 +106,7 @@ app.use(GraphQLService.routes(), GraphQLService.allowedMethods())
 
 app.use(oakCors({
   // credentials: true, // to get the cookie
-  origin: config.FRONT_END_PORTS, // ports for the frontend
+  origin: appConfig.FRONT_END_PORTS, // ports for the frontend
 }))
 
 app.addEventListener('listen', ({ hostname, port }) => {
@@ -122,4 +115,4 @@ app.addEventListener('listen', ({ hostname, port }) => {
   )
 })
 
-await app.listen({ hostname: 'localhost', port: config.SERVER_PORT })
+await app.listen({ hostname: 'localhost', port: appConfig.SERVER_PORT })
