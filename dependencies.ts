@@ -24,6 +24,8 @@ export { Bson, MongoClient } from 'https://deno.land/x/mongo@v0.22.0/mod.ts'
 
 export { oakCors } from 'https://deno.land/x/cors@v1.2.1/mod.ts'
 
+export { serve } from 'https://deno.land/std@0.97.0/http/server.ts'
+
 export { parse } from 'https://deno.land/std@0.97.0/flags/mod.ts'
 
 export { create, verify } from 'https://deno.land/x/djwt@v2.2/mod.ts'

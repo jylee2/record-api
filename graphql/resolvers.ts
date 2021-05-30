@@ -21,13 +21,13 @@ await client.connect({
   tls: true,
   servers: [
     {
-      host: appConfig.MONGO_HOST || 'cluster0-shard-00-02.cwxbw.mongodb.net',
+      host: appConfig.MONGO_HOST,
       port: 27017
     }
   ],
   credential: {
-    username: appConfig.MONGO_USERNAME || 'jylee4',
-    password: appConfig.MONGO_PASSWORD || 'hellomoto123',
+    username: appConfig.MONGO_USERNAME,
+    password: appConfig.MONGO_PASSWORD,
     db: 'recordOne',
     mechanism: 'SCRAM-SHA-1'
   }

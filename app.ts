@@ -16,6 +16,7 @@ import {
 import { applyGraphQL, gql, GQLError } from './dependencies.ts'
 import { Bson, MongoClient } from './dependencies.ts'
 import { oakCors } from './dependencies.ts'
+import { serve } from './dependencies.ts'
 import { parse } from './dependencies.ts'
 
 import typeDefs from './graphql/typeDefs.ts'
@@ -110,14 +111,30 @@ app.use(oakCors({
   origin: appConfig.FRONT_END_PORTS, // ports for the frontend
 }))
 
+const DEFAULT_PORT = appConfig.SERVER_PORT
+const argsPort = parse(Deno.args).port
+const finalPort = argsPort ? Number(argsPort) : DEFAULT_PORT
+
+if (isNaN(finalPort)) {
+  console.log('--------isNaN finalPort', finalPort)
+  Deno.exit(1)
+}
+
+console.log('--------finalPort', finalPort)
+
+// const displayBody = new TextEncoder().encode('Hello World\n')
+// const servePort = await serve({ finalPort })
+
+// for await (const req of servePort) {
+//   req.respond({ displayBody })
+// }
+
 app.addEventListener('listen', ({ hostname, port }) => {
   console.log(
     bold('Start listening on ') + yellow(`${hostname}:${port}`),
   )
 })
 
-const DEFAULT_PORT = appConfig.SERVER_PORT
-const argsPort = parse(Deno.args).port
-await app.listen({ port: argsPort ? Number(argsPort) : DEFAULT_PORT })
+await app.listen({ port: finalPort })
 // await app.listen({ hostname: 'localhost', port: appConfig.SERVER_PORT })
 
