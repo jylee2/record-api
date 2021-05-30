@@ -118,6 +118,6 @@ app.addEventListener('listen', ({ hostname, port }) => {
 
 const DEFAULT_PORT = appConfig.SERVER_PORT
 const argsPort = parse(Deno.args).port
-await app.listen({ port: argsPort ?? DEFAULT_PORT })
+await app.listen({ port: argsPort ? Number(argsPort) : DEFAULT_PORT })
 // await app.listen({ hostname: 'localhost', port: appConfig.SERVER_PORT })
 
