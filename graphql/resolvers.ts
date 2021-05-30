@@ -11,6 +11,10 @@ import enums from '../types/enums.ts'
 
 // ========== MongoDB ==========
 
+console.log('--------appConfig.MONGO_HOST', appConfig.MONGO_HOST)
+console.log('--------appConfig.MONGO_USERNAME exists', appConfig.MONGO_USERNAME !== '')
+console.log('--------appConfig.MONGO_PASSWORD exists', appConfig.MONGO_PASSWORD !== '')
+
 const client = new MongoClient()
 await client.connect({
   db: 'recordOne',
