@@ -1,4 +1,4 @@
-import { applyGraphQL, gql, GQLError } from 'https://deno.land/x/oak_graphql@0.6.2/mod.ts'
+import { applyGraphQL, gql, GQLError } from '../dependencies.ts'
 
 const typeDefs: any = gql`
   # type Comment {

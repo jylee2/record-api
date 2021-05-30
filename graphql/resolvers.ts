@@ -1,8 +1,8 @@
-import { applyGraphQL, gql, GQLError } from 'https://deno.land/x/oak_graphql@0.6.2/mod.ts'
-import { Bson, MongoClient } from 'https://deno.land/x/mongo@v0.22.0/mod.ts'
-import { v4 } from 'https://deno.land/std@0.92.0/uuid/mod.ts'
-import * as bcrypt from 'https://deno.land/x/bcrypt@v0.2.4/mod.ts'
-import { create, verify } from 'https://deno.land/x/djwt@v2.2/mod.ts'
+import { applyGraphQL, gql, GQLError } from '../dependencies.ts'
+import { Bson, MongoClient } from '../dependencies.ts'
+import { v4 } from '../dependencies.ts'
+import { bcrypt } from '../dependencies.ts'
+import { create, verify } from '../dependencies.ts'
 
 import appConfig from '../appConfig.ts'
 import validate from '../utils/validate.ts'
@@ -58,8 +58,6 @@ const resolvers = {
     },
 
     getRecords: async (_: any, {}: any, context: any, info: any) => {
-      console.log('--------context', context)
-      
       try {
         const allRecords = await RecordsDB.find({ status: enums.Status.ACTIVE }, { noCursorTimeout: false } as any).sort({ createdAt: -1 })
 
@@ -182,8 +180,6 @@ const resolvers = {
           authToken: jwt
         }
         
-        console.log('--------loginUser result', result)
-
         return result
       } catch (error) {
         console.log('--------Mutation registerUser error', error)
@@ -202,8 +198,6 @@ const resolvers = {
         // const user = await checkAuthHeader(context)
 
         const user = await checkAuthToken(authToken)
-
-        console.log('--------createRecord user', user)
 
         if (!url.includes('https://')) {
           throw new Error('Url is not https.')
@@ -228,8 +222,6 @@ const resolvers = {
           ...createRecordObj
         }
 
-        console.log('--------createRecord result', result)
-
         return result
       } catch (error) {
         console.log('--------Mutation createRecord error', error)
@@ -252,8 +244,6 @@ const resolvers = {
         // const user = await checkAuthHeader(context)
 
         const user = await checkAuthToken(authToken)
-
-        console.log('--------updateRecord user', user)
 
         const record:any = await RecordsDB.findOne({ _id: id }, { noCursorTimeout: false } as any)
 
@@ -281,8 +271,6 @@ const resolvers = {
           ...UpdateObj
         }
 
-        console.log('--------updateRecord result', result)
-
         return result
       } catch (error) {
         console.log('--------Mutation updateRecord error', error)
@@ -304,8 +292,6 @@ const resolvers = {
         // const user = await checkAuthHeader(context)
 
         const user = await checkAuthToken(authToken)
-
-        console.log('--------updateRecord user', user)
 
         const record:any = await RecordsDB.findOne({ _id: id }, { noCursorTimeout: false } as any)
 
@@ -331,8 +317,6 @@ const resolvers = {
           id: id,
           ...UpdateObj
         }
-
-        console.log('--------setRecordStatus result', result)
 
         return result
       } catch (error) {
