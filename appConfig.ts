@@ -1,15 +1,15 @@
 import 'https://deno.land/x/dotenv@v2.0.0/load.ts'
 import { load } from './dependencies.ts'
 
-load([
-  'JWT_SECRET_KEY',
-  'PORT',
-  'FRONT_END_PORTS',
-  'MONGODB_PORT',
-  'MONGO_HOST',
-  'MONGO_USERNAME',
-  'MONGO_PASSWORD'
-])
+// load([
+//   'JWT_SECRET_KEY',
+//   'PORT',
+//   'FRONT_END_PORTS',
+//   'MONGODB_PORT',
+//   'MONGO_HOST',
+//   'MONGO_USERNAME',
+//   'MONGO_PASSWORD'
+// ])
 
 const PORT = (Deno.env.get('PORT') && Number(Deno.env.get('PORT')) === 8080) ? Number(Deno.env.get('PORT')) : Deno.env.get('PORT')
 
