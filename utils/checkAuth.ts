@@ -1,5 +1,5 @@
-import { applyGraphQL, gql, GQLError } from 'https://deno.land/x/oak_graphql@0.6.2/mod.ts'
-import { create, verify } from 'https://deno.land/x/djwt@v2.2/mod.ts'
+import { applyGraphQL, gql, GQLError } from '../dependencies.ts'
+import { create, verify } from '../dependencies.ts'
 
 import appConfig from '../appConfig.ts'
 
@@ -33,16 +33,12 @@ export const checkAuthHeader = async (context:any) => {
 
 export const checkAuthToken = async (token:any) => {
   try {
-    console.log('--------token', token)
-
     if (token) {
       const payload = await verify(token, appConfig.JWT_SECRET_KEY, "HS512")
 
       if (!payload) {
         throw new GQLError('Invalid JWT token supplied, please try again.')
       }
-
-      console.log('--------payload', payload)
 
       return payload
     }

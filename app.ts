@@ -1,21 +1,22 @@
+import { RouterContext } from 'https://deno.land/x/oak@v6.2.0/mod.ts'
 import {
   bold,
   cyan,
   green,
   red,
   yellow,
-} from 'https://deno.land/std@0.84.0/fmt/colors.ts'
+} from './dependencies.ts'
 import {
   Application,
   Context,
   HttpError,
   Router,
-  RouterContext,
   Status
-} from 'https://deno.land/x/oak@v6.2.0/mod.ts'
-import { applyGraphQL, gql, GQLError } from 'https://deno.land/x/oak_graphql@0.6.2/mod.ts'
-import { Bson, MongoClient } from 'https://deno.land/x/mongo@v0.22.0/mod.ts'
-import { oakCors } from 'https://deno.land/x/cors@v1.2.1/mod.ts'
+} from './dependencies.ts'
+import { applyGraphQL, gql, GQLError } from './dependencies.ts'
+import { Bson, MongoClient } from './dependencies.ts'
+import { oakCors } from './dependencies.ts'
+import { parse } from './dependencies.ts'
 
 import typeDefs from './graphql/typeDefs.ts'
 import resolvers from './graphql/resolvers.ts'
@@ -115,4 +116,8 @@ app.addEventListener('listen', ({ hostname, port }) => {
   )
 })
 
-await app.listen({ hostname: 'localhost', port: appConfig.SERVER_PORT })
+const DEFAULT_PORT = appConfig.SERVER_PORT
+const argsPort = parse(Deno.args).port
+await app.listen({ port: argsPort ?? DEFAULT_PORT })
+// await app.listen({ hostname: 'localhost', port: appConfig.SERVER_PORT })
+
